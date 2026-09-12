@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <title>Інтеграція оплати з Python</title>
+</head>
+<body>
+
+    <div style="text-align: center; margin-top: 100px;">
+        <h1>Купити крутий цифровий товар</h1>
+        <p>Ціна: 100 UAH</p>
+        <button id="pay-btn" style="padding: 12px 24px; font-size: 18px; background: #28a745; color: #fff; border: none; border-radius: 6px; cursor: pointer;">
+            Оплатити через Google Pay / Карту
+        </button>
+    </div>
+
+    <!-- Підключаємо віджет WayForPay -->
+    <script id="widget-wfp-script" src="https://secure.wayforpay.com/server/pay-widget.js?v=1"></script>
+
+    <script>
+        document.getElementById('pay-btn').addEventListener('click', async function () {
+            try {
+                // 1. Запитуємо у нашого Python-сервера підготовлені параметри та підпис
+                let response = await fetch('/create-payment', {
+                    method: 'POST'
+                });
+                let paymentData = await response.json();
+
+                // 2. Ініціалізуємо віджет платіжної системи отриманими даними
+                let wpf = new Wayforpay();
+                wpf.run(
+                    paymentData,
+                    function (response) {
+                        // Успішна оплата у вікні браузера
+                        alert("Оплата пройшла успішно! Дякуємо.");
+                        console.log(response);
+                    },
+                    function (response) {
+                        // Помилка або відмова
+                        alert("Оплату скасовано або сталася помилка.");
+                        console.log(response);
+                    },
+                    function (response) {
+                        // Вікно просто закрили
+                        console.log("Закрито віджет:", response);
+                    }
+                );
+
+            } catch (error) {
+                console.error("Помилка зв'язку з сервером:", error);
+                alert("Не вдалося ініціювати платіж.");
+            }
+        });
+    </script>
+
+</body>
+</html>
