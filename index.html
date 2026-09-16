@@ -1,57 +1,191 @@
 <!DOCTYPE html>
 <html lang="uk">
 <head>
+    <title>Кнопка грошей</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="UTF-8">
-    <title>Інтеграція оплати з Python</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #1a1c4b, #271b55, #43115c);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .balance-board {
+            background: rgba(0, 0, 0, 0.4);
+            border: 3px solid #ffcc00;
+            border-radius: 30px;
+            padding: 10px 25px;
+            color: #fff;
+            font-size: 24px;
+            font-weight: bold;
+            box-shadow: 0 0 15px rgba(255, 204, 0, 0.5);
+            margin-bottom: 40px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        .balance-board span {
+            color: #ffcc00;
+        }
+
+        .button-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .money-btn {
+            position: relative;
+            width: 260px;
+            height: 260px;
+            border-radius: 50%;
+            background: radial-gradient(circle, #ffe600 0%, #ff9900 60%, #cc6600 100%);
+            border: 8px solid #fff;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5),
+                inset 0 6px 10px rgba(255, 255, 255, 0.8),
+                inset 0 -8px 15px rgba(0, 0, 0, 0.4),
+                0 0 30px rgba(255, 204, 0, 0.8);
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.05s ease, box-shadow 0.1s ease;
+            outline: none;
+            user-select: none;
+            z-index: 5;
+        }
+
+        .money-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.6),
+                inset 0 6px 12px rgba(255, 255, 255, 0.9),
+                inset 0 -8px 15px rgba(0, 0, 0, 0.4),
+                0 0 50px rgba(255, 221, 51, 1);
+        }
+
+        .money-btn:active {
+            transform: scale(0.92);
+        }
+
+        /* Стилі для тексту всередині кнопки */
+        .btn-text-top {
+            font-size: 24px;
+            font-weight: 900;
+            color: #ffffff;
+            text-transform: uppercase;
+            text-shadow: 2px 2px 0px #b33600, -2px -2px 0px #b33600, 2px -2px 0px #b33600, -2px 2px 0px #b33600, 0 4px 6px rgba(0,0,0,0.4);
+        }
+
+        .btn-text-bottom {
+            font-size: 30px;
+            font-weight: 900;
+            color: #fff4cc;
+            text-transform: uppercase;
+            text-shadow: 2px 2px 0px #b33600, -2px -2px 0px #b33600, 2px -2px 0px #b33600, -2px 2px 0px #b33600, 0 4px 6px rgba(0,0,0,0.4);
+        }
+
+        /* Анімація вибуху монет у всі боки */
+        .flying-coin {
+            position: absolute;
+            font-size: 20px;
+            font-weight: bold;
+            color: #ffcc00;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+            pointer-events: none;
+            animation: explode 0.8s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+            z-index: 100;
+        }
+
+        @keyframes explode {
+            0% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(0.5);
+            }
+            50% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0;
+                transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.4) rotate(var(--drot));
+            }
+        }
+    </style>
 </head>
 <body>
 
-    <div style="text-align: center; margin-top: 100px;">
-        <h1>Купити крутий цифровий товар</h1>
-        <p>Ціна: 100 UAH</p>
-        <button id="pay-btn" style="padding: 12px 24px; font-size: 18px; background: #28a745; color: #fff; border: none; border-radius: 6px; cursor: pointer;">
-            Оплатити через Google Pay / Карту
-        </button>
+    <div class="balance-board">
+        <span id="balance">0</span> $
     </div>
 
-    <!-- Підключаємо віджет WayForPay -->
-    <script id="widget-wfp-script" src="https://secure.wayforpay.com/server/pay-widget.js?v=1"></script>
-
+    <!-- Кнопка -->
+    <div class="button-container" id="container">
+        <button class="money-btn" id="moneyBtn">
+            <div class="btn-text-top">Отримати</div>
+            <div class="btn-text-bottom">Гроші</div>
+        </button>
+    </div>
+    
     <script>
-        document.getElementById('pay-btn').addEventListener('click', async function () {
-            try {
-                // 1. Запитуємо у нашого Python-сервера підготовлені параметри та підпис
-                let response = await fetch('/create-payment', {
-                    method: 'POST'
-                });
-                let paymentData = await response.json();
+        let balance = 0;
+        const balanceEl = document.getElementById('balance');
+        const moneyBtn = document.getElementById('moneyBtn');
+        const container = document.getElementById('container');
 
-                // 2. Ініціалізуємо віджет платіжної системи отриманими даними
-                let wpf = new Wayforpay();
-                wpf.run(
-                    paymentData,
-                    function (response) {
-                        // Успішна оплата у вікні браузера
-                        alert("Оплата пройшла успішно! Дякуємо.");
-                        console.log(response);
-                    },
-                    function (response) {
-                        // Помилка або відмова
-                        alert("Оплату скасовано або сталася помилка.");
-                        console.log(response);
-                    },
-                    function (response) {
-                        // Вікно просто закрили
-                        console.log("Закрито віджет:", response);
-                    }
-                );
-
-            } catch (error) {
-                console.error("Помилка зв'язку з сервером:", error);
-                alert("Не вдалося ініціювати платіж.");
-            }
+        moneyBtn.addEventListener('click', () => {
+            const reward = 250;
+            balance += reward;
+            balanceEl.textContent = balance.toLocaleString('uk-UA');
+            createFlyingCoin();
         });
-    </script>
 
+        function createFlyingCoin() {
+            // Робимо одразу 15 монет для ефекту вибуху
+            for (let i = 0; i < 15; i++) {
+                const coin = document.createElement('div');
+                coin.classList.add('flying-coin');
+                coin.textContent = Math.random() > 0.5 ? '+250 $' : '🪙';
+
+                // Випадковий кут і дальність розльоту у всі боки (360 градусів)
+                const angle = Math.random() * Math.PI * 2;
+                const distance = 80 + Math.random() * 120;
+                
+                const dx = Math.cos(angle) * distance;
+                const dy = Math.sin(angle) * distance;
+                const drot = (Math.random() - 0.5) * 360;
+
+                coin.style.setProperty('--dx', dx + 'px');
+                coin.style.setProperty('--dy', dy + 'px');
+                coin.style.setProperty('--drot', drot + 'deg');
+
+                // Центруємо відносно контейнера кнопки
+                coin.style.left = '50%';
+                coin.style.top = '50%';
+
+                container.appendChild(coin);
+
+                setTimeout(() => {
+                    coin.remove();
+                }, 800);
+            }
+        }
+    </script>
 </body>
 </html>
